@@ -150,7 +150,6 @@ public class Enemy : RecycleObject
 
         Destroy(gameObject);    // 자기 자신 삭제
     }
-
 }
 
 // 실습
