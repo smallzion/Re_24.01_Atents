@@ -186,7 +186,8 @@ public class Player : MonoBehaviour
         StartCoroutine(FlashEffect());
 
         //Instantiate(bulletPrefab, transform); // 발사된 총알도 플레이어의 움직임에 영향을 받는다.
-        Instantiate(bulletPrefab, position, Quaternion.identity);
+        //Instantiate(bulletPrefab, position, Quaternion.identity);
+        Factory.Instance.GetBullet(position);
     }
 
     IEnumerator FlashEffect()
