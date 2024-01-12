@@ -25,7 +25,7 @@ public class Background : MonoBehaviour
         transform.position += new Vector3(BackgroundWidth, 0, 0);
 
     }*/
-    private void Awake()
+    protected virtual void Awake()
     {
         bgSlots = new Transform[transform.childCount];
         for(int i = 0; i < bgSlots.Length; i++)
