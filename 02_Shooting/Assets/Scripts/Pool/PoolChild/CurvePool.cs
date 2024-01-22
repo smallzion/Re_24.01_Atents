@@ -6,6 +6,6 @@ public class CurvePool : ObjectPool<Curve>
 {
     protected override void OnGetObject(Curve component)
     {
-        component.RefreshRotateDirection();
+        component.RefreashRotateDirection();
     }
 }

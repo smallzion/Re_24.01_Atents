@@ -8,7 +8,6 @@ TagManager:
   - Bullet
   - PowerUp
   - Border
-  - KillZone
   layers:
   - Default
   - TransparentFX

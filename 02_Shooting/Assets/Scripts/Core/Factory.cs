@@ -14,10 +14,11 @@ public enum PoolObjectType
     EnemyWave,          // 적(파도)
     EnemyAsteroid,      // 적(큰 운석)
     EnemyAsteroidMini,  // 적(작은 운석)
-    EnemyBonus,         // 적(보너스)
-    EnemyCurve,         // 적(커브)
-    BossBullet,         // 보스 총알
-    BossMissile,        // 보스 미사일
+    EnemyBonus,         // 적(파워업 아이템 드랍)
+    EnemyCurve,         // 적(회전하는 적)
+    EnemyBoss,          // 적(보스)
+    EnemyBossBullet,    // 적 보스용 총알
+    EnemyBossMisslie,   // 적 보스용 유도 미사일
 }
 
 public class Factory : Singleton<Factory>
@@ -32,8 +33,9 @@ public class Factory : Singleton<Factory>
     AsteroidMiniPool asteroidMini;
     BonusPool bonus;
     CurvePool curve;
+    BossPool boss;
     BossBulletPool bossBullet;
-    BossMissilePool bossMissile;
+    BossMissliePool bossMisslie;
 
     /// <summary>
     /// 씬이 로딩 완료될 때마다 실행되는 초기화 함수
@@ -56,9 +58,11 @@ public class Factory : Singleton<Factory>
         explosion = GetComponentInChildren<ExplosionEffectPool>();
         if(explosion != null )
             explosion.Initialize();
+
         powerUp = GetComponentInChildren<PowerUpPool>();
-        if(powerUp != null)
+        if (powerUp != null)
             powerUp.Initialize();
+
         enemy = GetComponentInChildren<WavePool>();
         if(enemy != null)
             enemy.Initialize();
@@ -70,16 +74,19 @@ public class Factory : Singleton<Factory>
         if (asteroidMini != null) asteroidMini.Initialize();
 
         bonus = GetComponentInChildren<BonusPool>();
-        if(bonus != null) bonus.Initialize();
+        if (bonus != null) bonus.Initialize();
 
         curve = GetComponentInChildren<CurvePool>();
         if (curve != null) curve.Initialize();
 
+        boss = GetComponentInChildren<BossPool>();
+        if (boss != null) boss.Initialize();
+
         bossBullet = GetComponentInChildren<BossBulletPool>();
         if (bossBullet != null) bossBullet.Initialize();
 
-        bossMissile = GetComponentInChildren<BossMissilePool>();
-        if (bossMissile != null) bossMissile.Initialize();
+        bossMisslie= GetComponentInChildren<BossMissliePool>();
+        if (bossMisslie != null) bossMisslie.Initialize();
     }
 
     /// <summary>
@@ -121,11 +128,14 @@ public class Factory : Singleton<Factory>
             case PoolObjectType.EnemyCurve:
                 result = curve.GetObject(position, euler).gameObject;
                 break;
-            case PoolObjectType.BossBullet:
+            case PoolObjectType.EnemyBoss:
+                result = boss.GetObject(position, euler).gameObject;
+                break;
+            case PoolObjectType.EnemyBossBullet:
                 result = bossBullet.GetObject(position, euler).gameObject;
                 break;
-            case PoolObjectType.BossMissile:
-                result = bossMissile.GetObject(position, euler).gameObject;
+            case PoolObjectType.EnemyBossMisslie:
+                result = bossMisslie.GetObject(position, euler).gameObject;
                 break;
         }
 
@@ -170,6 +180,7 @@ public class Factory : Singleton<Factory>
     {
         return explosion.GetObject(position, angle * Vector3.forward); 
     }
+
     public PowerUp GetPowerUp()
     {
         return powerUp.GetObject();
@@ -179,6 +190,7 @@ public class Factory : Singleton<Factory>
     {
         return powerUp.GetObject(position, angle * Vector3.forward);
     }
+
     public Wave GetEnemyWave()
     {
         return enemy.GetObject();
@@ -208,6 +220,7 @@ public class Factory : Singleton<Factory>
     {
         return asteroidMini.GetObject(position, angle * Vector3.forward);
     }
+
     public Bonus GetBonus()
     {
         return bonus.GetObject();
@@ -217,7 +230,8 @@ public class Factory : Singleton<Factory>
     {
         return bonus.GetObject(position, angle * Vector3.forward);
     }
-    public Curve GetCruve()
+
+    public Curve GetCurve()
     {
         return curve.GetObject();
     }
@@ -226,21 +240,35 @@ public class Factory : Singleton<Factory>
     {
         return curve.GetObject(position, angle * Vector3.forward);
     }
+
+    public Boss GetBoss()
+    {
+        return boss.GetObject();
+    }
+
+    public Boss GetBoss(Vector3 position, float angle = 0.0f)
+    {
+        return boss.GetObject(position, angle * Vector3.forward);
+    }
+
     public BossBullet GetBossBullet()
     {
         return bossBullet.GetObject();
     }
+
     public BossBullet GetBossBullet(Vector3 position, float angle = 0.0f)
     {
         return bossBullet.GetObject(position, angle * Vector3.forward);
     }
-    public BossMissile GetBossMissile()
+
+    public BossMisslie GetBossMisslie()
     {
-        return bossMissile.GetObject();
+        return bossMisslie.GetObject();
     }
-    public BossMissile GetBossMissile(Vector3 position, float angle = 0.0f)
+
+    public BossMisslie GetBossMisslie(Vector3 position, float angle = 0.0f)
     {
-        return bossMissile.GetObject(position, angle * Vector3.forward);
+        return bossMisslie.GetObject(position, angle * Vector3.forward);
     }
 
 }

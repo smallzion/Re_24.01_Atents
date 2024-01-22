@@ -16,7 +16,6 @@ public class BossBullet : RecycleObject
     /// </summary>
     public float lifeTime = 10.0f;
 
-
     protected override void OnEnable()
     {
         base.OnEnable();
@@ -30,10 +29,11 @@ public class BossBullet : RecycleObject
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if(collision.gameObject.CompareTag("Player"))
+        if (collision.gameObject.CompareTag("Player"))
         {
             Factory.Instance.GetHitEffect(collision.contacts[0].point);
-            gameObject.SetActive(false); 
+
+            gameObject.SetActive(false);    // 비활성화 -> 풀로 되돌리기
         }
     }
 }

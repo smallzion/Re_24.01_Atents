@@ -70,8 +70,6 @@ public class Player : MonoBehaviour
     /// </summary>
     int score = 0;
 
-    
-
     /// <summary>
     /// 점수 확인 및 설정용 프로퍼티
     /// </summary>
@@ -87,59 +85,59 @@ public class Player : MonoBehaviour
             }
         }
     }
-    public int powerBonus = 1000;
-    private const int MinPower = 1;
-    private const int MaxPower = 3;
-    private int power = 1;
-    private const float FireAngle = 30.0f;
-    private int Power
-    {
-        get => power;
-        set
-        {
-            if(power != value)
-            {
-                power = value;
-                if(power > MaxPower)
-                {
-                    AddScore(powerBonus);
-                }
-                power = Mathf.Clamp(power, MinPower, MaxPower);
-                RefreshFirePositions();
-            }
-        }
-    }
-
-    private void RefreshFirePositions()
-    {
-        for (int i = 0; i < MaxPower; i++)
-        {
-            if (i < Power)   // 파워 단계에 맞게 사용되는 부분 조정
-            {
-                // 1: 0도
-                // 2: +15도, -15도        => 30도 한번
-                // 3: +30도, 0도, -30도   => 30도 두번
-
-                float startAngle = (Power - 1) * (FireAngle * 0.5f);    // power에 따라 시작각도를 다르게 설정
-                float angleDelta = i * -FireAngle;                      // 30도씩 단계별로 회전
-                fireTransforms[i].rotation = Quaternion.Euler(0, 0, startAngle + angleDelta);
-
-                fireTransforms[i].localPosition = Vector3.zero;         // 초기화
-                fireTransforms[i].Translate(0.5f, 0.0f, 0.0f);          // 살짝 오른쪽으로 옮기기(로컬 기준)
-
-                fireTransforms[i].gameObject.SetActive(true);           // 활성화
-            }
-            else
-            {
-                fireTransforms[i].gameObject.SetActive(false);          // 비활성화
-            }
-        }
-    }
 
     /// <summary>
     /// 점수가 변경되었을 때 알리는 델리게이트(파라메터: 변경된 점수)
     /// </summary>
     public Action<int> onScoreChange;
+
+    /// <summary>
+    /// 파워 3단계에서 파워업 아이템을 먹었을 때 얻는 보너스 점수
+    /// </summary>
+    public int powerBonus = 1000;
+
+    /// <summary>
+    /// 최소 파워 단계
+    /// </summary>
+    private const int MinPower = 1;
+
+    /// <summary>
+    /// 최대 파워 단계
+    /// </summary>
+    private const int MaxPower = 3;
+
+    /// <summary>
+    /// 한번에 여러 총알을 쏠 때 총알 간의 간격
+    /// </summary>
+    private const float FireAngle = 30.0f;
+
+    /// <summary>
+    /// 현재 파워
+    /// </summary>
+    private int power = 1;
+
+    /// <summary>
+    /// 파워 확인 및 설정용 프로퍼티
+    /// </summary>
+    private int Power
+    {
+        get => power;
+        set
+        {
+            if( power != value) // 변경이 있을 때만 처리
+            {
+                power = value;
+                if( power > MaxPower)
+                {
+                    AddScore(powerBonus);   // 파워가 최대치를 벗어나면 보너스 점수 추가
+                }
+
+                power = Mathf.Clamp(power, MinPower, MaxPower); // 파워는 최소~최대 단계로만 존재
+
+                RefreshFirePositions();     // 총알 발사 위치 조정
+            }
+        }
+    }
 
     // 이 스크립트가 포함된 게임 오브젝트가 생성 완료되면 호출된다.
     private void Awake()
@@ -155,13 +153,14 @@ public class Player : MonoBehaviour
         // GameObject.FindFirstObjectByType<Transform>();  // 특정 컴포넌트를 가지고 있는 첫번째 게임 오브젝트 찾기
         // GameObject.FindGameObjectWithTag("Player");  // 게임 오브젝트의 태그를 기준으로 찾는 함수
         // GameObject.FindGameObjectsWithTag("Player"); // 특정 태그를 가진 모든 게임오브젝트를 찾아주는 함수
-        
+
         Transform fireRoot = transform.GetChild(0);  // 이 게임 오브젝트의 첫번째 자식 찾기
         fireTransforms = new Transform[fireRoot.childCount];
-        for (int i = 0; i < fireTransforms.Length; i++)
+        for(int i = 0; i < fireTransforms.Length; i++)
         {
             fireTransforms[i] = fireRoot.GetChild(i);
         }
+
         // transform.childCount; // 이 게임 오브젝트의 자식 숫자
 
         fireFlash = transform.GetChild(1).gameObject;   // 이 게임 오브젝트의 두번째 자식의 게임오브젝트 찾기
@@ -225,7 +224,7 @@ public class Player : MonoBehaviour
     {
         while (true)
         {
-            for (int i = 0; i < Power; i++)
+            for(int i=0;i<Power;i++)
             {
                 Fire(fireTransforms[i]);                   // 총알 한발 쏘기
             }
@@ -244,21 +243,7 @@ public class Player : MonoBehaviour
 
         //Instantiate(bulletPrefab, transform); // 발사된 총알도 플레이어의 움직임에 영향을 받는다.
         //Instantiate(bulletPrefab, position, Quaternion.identity);
-        /*switch(Power)
-        {
-            case 1:
-                Factory.Instance.GetBullet(position, angle);
-                break;
-            case 2:
-                Factory.Instance.GetBullet(position, 20.0f) ;
-                Factory.Instance.GetBullet(position, -20.0f);
-                break;
-            case 3:
-                Factory.Instance.GetBullet(position, angle);
-                Factory.Instance.GetBullet(position, 20.0f);
-                Factory.Instance.GetBullet(position, -20.0f);
-                break;
-        }*///기존에 3발나가게끔 만든 코드
+
         Factory.Instance.GetBullet(fireTransform.position, fireTransform.eulerAngles.z);   // 팩토리를 이용해 총알 생성
     }
 
@@ -291,14 +276,14 @@ public class Player : MonoBehaviour
     {
         // scope : 변수나 함수의 사용 가능한 범위
         inputDir = context.ReadValue<Vector2>();
-        //Debug.Log($"OnMove : ({dir})");
+        //Debug.Log($"OnMove : ({direction})");
 
         //this.transform.position = new Vector3(1, 0, 0); // 이 게임 오브젝트의 위치를 (1,0,0)으로 보내라
 
         //transform.position += new Vector3(1, 0, 0);   // 이 게임 오브젝트의 위치를 현재 위치에서 (1,0,0)만큼 움직여라
         //transform.position += Vector3.right;
 
-        //transform.position += (Vector3)dir;   // 이 게임 오브젝트의 위치를 현재 위치에서 inputDir 방향으로 움직여라
+        //transform.position += (Vector3)direction;   // 이 게임 오브젝트의 위치를 현재 위치에서 inputDir 방향으로 움직여라
 
 
         //anim.SetFloat("InputY", inputDir.y);    // 애니메이터가 가지는 InputY 파라메터에 inputDir.y값을 넣기
@@ -344,22 +329,6 @@ public class Player : MonoBehaviour
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.gameObject.CompareTag("PowerUp"))
-        {
-            collision.gameObject.SetActive(false);
-            Power++;
-            /*if(Power <= 2)
-            {
-                Power++;
-                Debug.Log(Power + "플레이어 파워 레벨");
-            }
-            else
-            {
-                Score += 1000;
-                Debug.Log("플레이어 점수 " + Score);
-            }*/
-        }
-
         // 충돌이 시작했을 때 실행
         //Debug.Log($"OnCollisionEnter2D : {collision.gameObject.name}");
 
@@ -367,6 +336,12 @@ public class Player : MonoBehaviour
         //{
         //    Destroy(collision.gameObject);  // 충돌한 대상을 제거하기
         //}
+
+        if( collision.gameObject.CompareTag("PowerUp") )
+        {
+            Power++;
+            collision.gameObject.SetActive(false);
+        }
     }
 
     private void OnCollisionStay2D(Collision2D collision)
@@ -407,14 +382,47 @@ public class Player : MonoBehaviour
     {
         Score += getScore;
     }
-#if UNITY_EDITOR
-    public void Test_PowerDown()
+
+
+
+    /// <summary>
+    /// 파워 단계에 따라 총알 발사 위치 조정
+    /// </summary>
+    private void RefreshFirePositions()
     {
-        Power--;
+        for (int i = 0; i < MaxPower; i++)
+        {
+            if (i < Power)   // 파워 단계에 맞게 사용되는 부분 조정
+            {
+                // 1: 0도
+                // 2: +15도, -15도        => 30도 한번
+                // 3: +30도, 0도, -30도   => 30도 두번
+
+                float startAngle = (Power - 1) * (FireAngle * 0.5f);    // power에 따라 시작각도를 다르게 설정
+                float angleDelta = i * -FireAngle;                      // 30도씩 단계별로 회전
+                fireTransforms[i].rotation = Quaternion.Euler(0, 0, startAngle + angleDelta);
+
+                fireTransforms[i].localPosition = Vector3.zero;         // 초기화
+                fireTransforms[i].Translate(0.5f, 0.0f, 0.0f);          // 살짝 오른쪽으로 옮기기(로컬 기준)
+
+                fireTransforms[i].gameObject.SetActive(true);           // 활성화
+            }
+            else
+            {
+                fireTransforms[i].gameObject.SetActive(false);          // 비활성화
+            }
+        }
     }
+
+#if UNITY_EDITOR    // unity 에디터에서 실행한 경우만 true
     public void Test_PowerUp()
     {
         Power++;
+    }
+
+    public void Test_PowerDown()
+    {
+        Power--;
     }
 #endif
 }
