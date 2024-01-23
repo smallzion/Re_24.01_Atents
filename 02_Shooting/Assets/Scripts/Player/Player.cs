@@ -1,6 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using Unity.Mathematics;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -13,7 +16,7 @@ public class Player : MonoBehaviour
 
     // InputSystem : 유니티의 새로운 입력 방식
     //  Event-driven 방식 적용.
-
+    SpriteRenderer spriteRenderer;
     PlayerInputActions inputActions;
 
     /// <summary>
@@ -110,7 +113,7 @@ public class Player : MonoBehaviour
     /// 한번에 여러 총알을 쏠 때 총알 간의 간격
     /// </summary>
     private const float FireAngle = 30.0f;
-
+    
     /// <summary>
     /// 현재 파워
     /// </summary>
@@ -138,10 +141,152 @@ public class Player : MonoBehaviour
             }
         }
     }
+    /// <summary>
+    /// 남은 플레이어의 생명
+    /// </summary>
+    private int life = 0;
 
+    /// <summary>
+    /// 시작시 플레이어의 생명
+    /// </summary>
+    const int startLife = 3;
+    /// <summary>
+    /// 생명을 설정하고 확인하기 위한 프로퍼티
+    /// </summary>
+    private int Life
+    {
+        get => life;
+        set
+        {
+            /*if (life > value) 
+            {
+                if (IsALive)
+                {
+                    OnHit(); //맞고나서 살았으면 맞은 처리
+                }
+                else
+                {
+                    OnDie(); //맞고나서 죽었으면 죽은처리
+                }
+            }*/
+            if(life !=  value) //변화가 있을 때만 처리
+            {
+                life = value;
+                if (IsALive)
+                {
+                    OnHit(); //맞고나서 살았으면 맞은 처리
+                }
+                else
+                {
+                    OnDie(); //맞고나서 죽었으면 죽은처리
+                }
+                life = Mathf.Clamp(life, 0, startLife);// 항상 0~3
+                onLifeChange?.Invoke(life); //생명 변화가 있었음을 알림
+            }
+        }
+    }
+//    bool setColor = false;
+    private void OnHit()
+    {
+        Debug.Log($"플레이어 체력이 {life}남았다.");
+        Power--;            //파워1감소
+        StartCoroutine(InvincibleMode());       //무적 모드에 들어감
+        /*gameObject.layer = 11;
+        InvokeRepeating(nameof(ChangeColor), 0, 0.2f);
+        Invoke(nameof(Emun), invincibleTime);*/
+
+        //파워 단계 떨구기
+        //일시적으로 무적모드 진입 2초동안
+        //무적일때 화면밖 안되고
+        //적 충돌x
+        // 무적상태 표시
+    }
+    /// <summary>
+    /// 무적모드 처리용 코루틴
+    /// </summary>
+    /// <returns></returns>
+    IEnumerator InvincibleMode()
+    {
+        gameObject.layer = LayerMask.NameToLayer("Invincible"); // 레이어를 무적 레이어로 변경
+        float timeElapsed = 0.0f;
+        while (timeElapsed <= invincibleTime) //2초동안 계속하기
+        {
+            timeElapsed += Time.deltaTime;
+            float alpha = Mathf.Cos(timeElapsed * 30.0f + 1.0f) * 0.5f; //코사인 결과를 1 ~ 0사이로 변경
+            spriteRenderer.color = new Color(1, 1, 1, alpha); //알파에 지정 (깜빡거리게 된다.)
+            yield return null;
+        }
+        gameObject.layer = LayerMask.NameToLayer("Player"); //레이어를 다시 플레이어로 되돌리기
+        spriteRenderer.color = new Color(1, 1, 1, 1);       //알파값도 원상복구
+    }
+    /*private void Emun()
+    {
+        gameObject.layer = 6;
+        CancelInvoke();
+        spriteRenderer.color = new Color(1, 1, 1, 1);
+    }
+    void ChangeColor()
+    {
+        if (!setColor)
+        {
+            spriteRenderer.color = new Color(1, 1, 1, 0);
+            setColor = true;
+        }
+        else
+        {
+            spriteRenderer.color = new Color(1, 1, 1, 1);
+            setColor = false;
+        }
+    }*/
+    private void OnDie()
+    {
+        Debug.Log($"플레이어가 사망");
+        //gameObject.SetActive( false );
+        //충돌이 안일어나야함
+        Collider2D body = GetComponent<Collider2D>();
+        body.enabled = false;       //이 컴포넌트만 끄기
+        //내가 터지는 이펙트
+        Factory.Instance.GetExplosionEffect(transform.position);
+        //입력도 안되야함
+        inputActions.Player.Disable();
+
+        //이동 초기화, 총알 발사코루틴 정지 => disable하면서 자동으로 입력이 디폴트로 돌아가서 안해도 된다.
+        //튕겨나가는 연출 필요
+        rigid2d.freezeRotation = false;
+        rigid2d.AddForce(Vector2.left * 10.0f, ForceMode2D.Impulse);        //Force는 지속적인 힘, Impulse은 즉각적인 힘
+        rigid2d.AddTorque(10000);
+        rigid2d.gravityScale = 1.0f;
+
+        //사망했음을 알림
+        onDie?.Invoke(score);
+    }
+    public void Test_Die()
+    {
+        Life = 0;
+    }
+
+    private bool IsALive => life > 0;
+    public Action<int> onLifeChange;
+    //맞았을 때 무적시간
+    public float invincibleTime = 2.0f;
+
+    /// <summary>
+    /// 죽었음을 알리는 데리게이트(점수 전달)
+    /// </summary>
+    public Action<int> onDie;
+
+
+    // 이 스크립트가 포함된 게임 오브젝트의 첫번째 Update함수가 실행되기 직전에 호출된다.
+    private void Start()
+    {
+        // 파워와 생명 초기화
+        Power = 1;
+        Life = startLife;
+    }
     // 이 스크립트가 포함된 게임 오브젝트가 생성 완료되면 호출된다.
     private void Awake()
     {
+        spriteRenderer = GetComponent<SpriteRenderer>();
         inputActions = new PlayerInputActions();            // 인풋 액션 생성
         anim = GetComponent<Animator>();   // 이 스크립트가 들어있는 게임 오브젝트에서 컴포넌트를 찾아서 anim에 저장하기(없으면 null)
         // null; // 참조가 비어있다.
@@ -167,6 +312,8 @@ public class Player : MonoBehaviour
         flashWait = new WaitForSeconds(0.1f);
 
         fireCoroutine = FireCoroutine();
+
+
     }
 
     // 이 스크립트가 포함된 게임 오브젝트가 활성화되면 호출된다.
@@ -290,13 +437,8 @@ public class Player : MonoBehaviour
         anim.SetFloat(InputY_String, inputDir.y);
     }
     
-    // 이 스크립트가 포함된 게임 오브젝트의 첫번째 Update함수가 실행되기 직전에 호출된다.
-    private void Start()
-    {
-        
-    }
 
-    private void Update()
+    /*private void Update()
     {
         // 인풋매니저 방식
         //if (Input.GetKeyDown(KeyCode.A))
@@ -315,7 +457,7 @@ public class Player : MonoBehaviour
         // Time.deltaTime : 프레임간의 시간 간격(가변적)
         //transform.Translate(Time.deltaTime * moveSpeed * inputDir); // 1초당 moveSpeed만큼의 속도로, inputDir 방향으로 움직여라
         
-    }
+    }*/
 
     /// <summary>
     /// 고정된 시간간격으로 호출되는 업데이트(물리연산 처리용 업데이트)
@@ -323,7 +465,10 @@ public class Player : MonoBehaviour
     private void FixedUpdate()
     {
         //transform.Translate(Time.deltaTime * moveSpeed * inputDir);
-        rigid2d.MovePosition(rigid2d.position + (Vector2)(Time.fixedDeltaTime * moveSpeed * inputDir));
+        if(IsALive)
+        {
+            rigid2d.MovePosition(rigid2d.position + (Vector2)(Time.fixedDeltaTime * moveSpeed * inputDir));
+        }
 
     }
 
@@ -336,8 +481,11 @@ public class Player : MonoBehaviour
         //{
         //    Destroy(collision.gameObject);  // 충돌한 대상을 제거하기
         //}
-
-        if( collision.gameObject.CompareTag("PowerUp") )
+        if (collision.gameObject.CompareTag("Enemy"))
+        {
+            Life--;
+        }
+        else if( collision.gameObject.CompareTag("PowerUp") )
         {
             Power++;
             collision.gameObject.SetActive(false);
@@ -423,6 +571,11 @@ public class Player : MonoBehaviour
     public void Test_PowerDown()
     {
         Power--;
+    }
+
+    public void Test_AddScore(int score)
+    {
+        Score += score;
     }
 #endif
 }
