@@ -6,8 +6,9 @@ using UnityEngine.InputSystem;
 public class Test_GameOver : TestBase
 {
     public int score;
-
+    public RankLine line;
     Player player;
+    public RankPanel panel;
 
     private void Start()
     {
@@ -15,16 +16,22 @@ public class Test_GameOver : TestBase
     }
     protected override void OnTest1(InputAction.CallbackContext context)
     {
-        player.Test_AddScore(score);
+        player.Test_Die();
     }
     protected override void OnTest2(InputAction.CallbackContext context)
     {
-        player.Test_AddScore(-score);
-        Debug.Log($"Score: {player.Score}");
+        player.Test_SetScore(score);
     }
     protected override void OnTest3(InputAction.CallbackContext context)
     {
-        player.Test_Die();
+        line.SetData("가가가", 100);
     }
-    
+    protected override void OnTest4(InputAction.CallbackContext context)
+    {
+        panel.Test_DefaultRankPanel();
+    }
+    protected override void OnTest5(InputAction.CallbackContext context)
+    {
+        panel.Test_SaveRankPanel();
+    }
 }
