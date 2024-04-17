@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -20,29 +21,41 @@ public class GameManager : Singleton<GameManager>
     {
         get
         {
-            if (stick == null)
-            {
+            if(stick == null)
                 stick = FindAnyObjectByType<VirtualStick>();
-            }
             return stick;
         }
-
     }
-    VitrualButton button;
 
-    public VitrualButton Button
+    VirtualButton jumpButton;
+    public VirtualButton JumpButton
     {
         get
         {
-            if(button == null)
-            {
-                button = FindAnyObjectByType<VitrualButton>();
-            }
-            return button;
+            if (jumpButton == null)
+                jumpButton = FindAnyObjectByType<VirtualButton>();
+            return jumpButton;
         }
     }
+
+    bool isOver = false;
+
+    public Action onGameOver;
+
+    public void GameOver()
+    {
+        if (!isOver)
+        {
+            onGameOver?.Invoke();
+            isOver = true;
+        }
+    }
+
+
     protected override void OnInitialize()
     {
         player = FindAnyObjectByType<Player>();
+        stick = FindAnyObjectByType<VirtualStick>();
+        jumpButton = FindAnyObjectByType<VirtualButton>();
     }
 }
