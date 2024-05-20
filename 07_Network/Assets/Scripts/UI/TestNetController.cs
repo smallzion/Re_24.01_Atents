@@ -1,11 +1,18 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class TestNetController : MonoBehaviour
 {
+    TextMeshProUGUI playerInGame;
+    TextMeshProUGUI userName;
+
+    const string BlankUserName = "□□□□□□□□";
+    const string BlankPlayersInGame = "-";
+
     private void Start()
     {
         Transform child = transform.GetChild(0);
@@ -42,5 +49,29 @@ public class TestNetController : MonoBehaviour
         {
             NetworkManager.Singleton.Shutdown();    // 내 연결 끊기
         });
+
+        // 동접자 수
+        child = transform.GetChild(3);
+        child = child.GetChild(1);
+        playerInGame = child.GetComponent<TextMeshProUGUI>();
+
+        GameManager gameManager = GameManager.Instance;
+        gameManager.onPlayersInGameChange += (count) => playerInGame.text = count.ToString();   // 동접자 숫자 변경 델리게이트가 실행되면 UI 갱신
+
+        // 사용자 이름
+        child = transform.GetChild(4);
+        child = child.GetChild(1);
+        userName = child.GetComponent<TextMeshProUGUI>();
+        gameManager.onUserNameChange += (name) =>
+        {
+            userName.text = gameManager.UserName;
+        };
+
+        // 플레이어가 접속을 끊었을 때 초기화
+        gameManager.onPlayerDisconnected += () =>
+        {
+            userName.text = BlankUserName;
+            playerInGame.text = BlankPlayersInGame;
+        };
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -26,7 +27,7 @@ public class NetPlayer : NetworkBehaviour
     /// <summary>
     /// 마지막 입력으로 인한 회전 방향(좌회전, 정지, 우회전)
     /// </summary>
-    NetworkVariable<float> rotate = new NetworkVariable<float>(0.0f);
+    NetworkVariable<float> netRotate = new NetworkVariable<float>(0.0f);
 
     /// <summary>
     /// 애니메이션 상태
@@ -44,87 +45,240 @@ public class NetPlayer : NetworkBehaviour
     /// </summary>
     AnimationState state = AnimationState.None;
 
-    ///// <summary>
-    ///// 애니메이션 상태 설정 및 확인용 프로퍼티
-    ///// </summary>
-    //AnimationState State
-    //{
-    //    get => state; 
-    //    set
-    //    {
-    //        if (value != state)
-    //        {
-    //            state = value;
-    //            animator.SetTrigger(state.ToString());
-    //        }
-    //    }
-    //}
+    /// <summary>
+    /// 애니메이션 상태 처리용 네트워크 변수
+    /// </summary>
+    NetworkVariable<AnimationState> netAnimState = new NetworkVariable<AnimationState>();
+
+    /// <summary>
+    /// 채팅용 네트워크 변수
+    /// </summary>
+    NetworkVariable<FixedString512Bytes> chatString = new NetworkVariable<FixedString512Bytes>();
+
+    /// <summary>
+    /// 공격용 총알 프리팹
+    /// </summary>
+    public GameObject bulletPrefab;
+
+    /// <summary>
+    /// 공격용 오브 프리팹
+    /// </summary>
+    public GameObject orbPrefab;
+
+    /// <summary>
+    /// 발사 위치용 트랜스폼
+    /// </summary>
+    Transform fireTransform;
 
     // 컴포넌트 들
     CharacterController controller;
     Animator animator;
     PlayerInputActions inputActions;
 
+    // 유니티 이벤트 함수들 ----------------------------------------------------------------------------
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
         animator = GetComponent<Animator>();
 
-        inputActions = new PlayerInputActions();
 
-        //netMoveDir.OnValueChanged += aaa;
+        netAnimState.OnValueChanged += OnAnimStateChange;
+        chatString.OnValueChanged += OnChatRecieve;
+
+        fireTransform = transform.GetChild(4);
     }
 
-    private void OnEnable()
+    public override void OnNetworkSpawn()
     {
-        inputActions.Player.Enable();
-        inputActions.Player.MoveForward.performed += OnMoveInput;
-        inputActions.Player.MoveForward.canceled += OnMoveInput;
-        inputActions.Player.Rotate.performed += OnRotate;
-        inputActions.Player.Rotate.canceled += OnRotate;
+        if (IsOwner)
+        {
+            inputActions = new PlayerInputActions();
+
+            inputActions.Player.Enable();
+            inputActions.Player.MoveForward.performed += OnMoveInput;
+            inputActions.Player.MoveForward.canceled += OnMoveInput;
+            inputActions.Player.Rotate.performed += OnRotate;
+            inputActions.Player.Rotate.canceled += OnRotate;
+            inputActions.Player.Attack1.performed += OnAttack1;
+            inputActions.Player.Attack2.performed += OnAttack2;
+
+            GameManager.Instance.VCam.Follow = transform.GetChild(0);
+        }
     }
 
-    private void OnDisable()
+    public override void OnNetworkDespawn()
     {
-        inputActions.Player.Rotate.canceled -= OnRotate;
-        inputActions.Player.Rotate.performed -= OnRotate;
-        inputActions.Player.MoveForward.canceled -= OnMoveInput;
-        inputActions.Player.MoveForward.performed -= OnMoveInput;
-        inputActions.Player.Disable();
+        if (IsOwner)
+        {
+            GameManager.Instance.VCam.Follow = null;
+
+            inputActions.Player.Attack2.performed -= OnAttack2;
+            inputActions.Player.Attack1.performed -= OnAttack1;
+            inputActions.Player.Rotate.canceled -= OnRotate;
+            inputActions.Player.Rotate.performed -= OnRotate;
+            inputActions.Player.MoveForward.canceled -= OnMoveInput;
+            inputActions.Player.MoveForward.performed -= OnMoveInput;
+            inputActions.Player.Disable();
+
+            inputActions = null;
+
+            GameManager.Instance.onPlayerDisconnected?.Invoke();
+        }
     }
 
+    private void Update()
+    {
+        if (netMoveDir.Value != 0.0f)
+        {
+            controller.SimpleMove(netMoveDir.Value * transform.forward);
+        }
+        transform.Rotate(0, netRotate.Value * Time.deltaTime, 0, Space.World);
+    }
+
+    // 입력 처리용 함수들 ------------------------------------------------------------------------------
     private void OnMoveInput(InputAction.CallbackContext context)
     {
         float moveInput = context.ReadValue<float>();   // 키보드라 -1, 0, 1 중 하나
         SetMoveInput(moveInput);
     }
 
+    private void OnRotate(InputAction.CallbackContext context)
+    {
+        float rotateInput = context.ReadValue<float>(); // 키보드라 -1, 0, 1 중 하나
+        SetRotateInput(rotateInput);
+    }
+    private void OnAttack1(InputAction.CallbackContext obj)
+    {
+        // 좌클릭 : 총알 발사
+        Attack1();
+    }
+
+    private void OnAttack2(InputAction.CallbackContext obj)
+    {
+        // 우클릭 : 오브발사
+        Attack2();
+    }
+
+    // 이동 및 공격 ----------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// 이동 입력 처리용 함수
+    /// </summary>
+    /// <param name="moveInput">이동 입력 된 정도</param>
     void SetMoveInput(float moveInput)
     {
-        float moveDir = moveInput * moveSpeed;
-        
-        if( NetworkManager.Singleton.IsServer )
+        if (IsOwner) // 오너일 일때만 이동 처리
         {
-            netMoveDir.Value = moveDir;
-        }
-        else if(IsOwner)
-        {
-            MoveRequestServerRpc(moveDir);
+            float moveDir = moveInput * moveSpeed;  // 이동 정도 결정
+            if (IsServer)
+            {
+                netMoveDir.Value = moveDir;         // 서버면 직접 수정
+            }
+            else
+            {
+                MoveRequestServerRpc(moveDir);      // 서버가 아이면 서버에게 수정 요청하는 Rpc 실행
+            }
+
+            // 애니메이션 변경
+            if (moveDir > 0.001f)
+            {
+                state = AnimationState.Walk;
+            }
+            else if (moveDir < -0.001f)
+            {
+                state = AnimationState.BackWalk;
+            }
+            else
+            {
+                state = AnimationState.Idle;
+            }
+            if (state != netAnimState.Value)    // 애니메이션 상태가 변경되면
+            {
+                // 서버 인지 아닌지에 따라 수정하기
+                if (IsServer)
+                {
+                    netAnimState.Value = state;
+                }
+                else
+                {
+                    UpdateAnimStateServerRpc(state);
+                }
+            }
         }
 
-        //if(moveDir > 0.001f)
-        //{
-        //    State = AnimationState.Walk;
-        //}
-        //else if(moveDir < -0.001f)
-        //{
-        //    State = AnimationState.BackWalk;
-        //}
-        //else
-        //{
-        //    State = AnimationState.Idle;
-        //}
     }
+
+    /// <summary>
+    /// 회전 입력을 처리하는 함수
+    /// </summary>
+    /// <param name="rotateInput">회전 입력 정도</param>
+    void SetRotateInput(float rotateInput)
+    {
+        if (IsOwner) // 오너일 때만 처리
+        {
+            float rotate = rotateInput * rotateSpeed;   // 회전량 결정
+            if (IsServer)
+            {
+                netRotate.Value = rotate;       // 서버면 직접 주성
+            }
+            else
+            {
+                RotateRequestServerRpc(rotate); // 서버가 아니면 Rpc요청
+            }
+        }
+    }
+
+    /// <summary>
+    /// 애니메이션 상태가 변경되면 실행되는 함수
+    /// </summary>
+    /// <param name="previousValue">이전 값</param>
+    /// <param name="newValue">새 값</param>
+    private void OnAnimStateChange(AnimationState previousValue, AnimationState newValue)
+    {
+        animator.SetTrigger(newValue.ToString());   // 새 값으로 변경
+    }
+
+    void Attack1()
+    {
+
+    }
+
+    void Attack2()
+    {
+        RequestEnergyOrbServerRpc();
+    }
+
+    // 채팅 ----------------------------------------------------------------------------------
+
+    /// <summary>
+    /// 채팅을 보내는 함수
+    /// </summary>
+    /// <param name="message"></param>
+    public void SendChat(string message)
+    {
+        // chatString 변경
+        if (IsServer)
+        {
+            chatString.Value = message;
+        }
+        else
+        {
+            RequestChatServerRpc(message);
+        }
+    }
+
+    /// <summary>
+    /// 채팅을 받았을 때 처리하는 함수(chatString이 변경되었다 = 채팅을 받았다)
+    /// </summary>
+    /// <param name="previousValue"></param>
+    /// <param name="newValue"></param>
+    private void OnChatRecieve(FixedString512Bytes previousValue, FixedString512Bytes newValue)
+    {
+        GameManager.Instance.Log(newValue.ToString());  // 받은 채팅 내용을 logger에 찍기
+    }
+
+
+    // 서버 Rpc들 -----------------------------------------------------------------------------------------------
 
     [ServerRpc]
     void MoveRequestServerRpc(float move)
@@ -132,24 +286,30 @@ public class NetPlayer : NetworkBehaviour
         netMoveDir.Value = move;
     }
 
-    private void OnRotate(InputAction.CallbackContext context)
+    [ServerRpc]
+    void RotateRequestServerRpc(float rotate)
     {
-        float rotateInput = context.ReadValue<float>(); // 키보드라 -1, 0, 1 중 하나
-
-
-        //rotate = rotateInput * rotateSpeed;
+        netRotate.Value = rotate;
     }
 
-    private void Update()
+    [ServerRpc]
+    void UpdateAnimStateServerRpc(AnimationState state)
     {
-        if(netMoveDir.Value != 0.0f)
-        {
-            controller.SimpleMove(netMoveDir.Value * transform.forward);
-        }
-        //transform.Rotate(0, rotate * Time.deltaTime, 0, Space.World);
+        netAnimState.Value = state;
     }
+
+    [ServerRpc]
+    void RequestChatServerRpc(FixedString512Bytes message)
+    {
+        chatString.Value = message;
+    }
+
+    [ServerRpc]
+    void RequestEnergyOrbServerRpc()
+    {
+        GameObject orb = Instantiate(orbPrefab, fireTransform.position, fireTransform.rotation);
+        NetworkObject netOrb = orb.GetComponent<NetworkObject>();
+        netOrb.Spawn(true);
+    }
+
 }
-
-// 실습
-// 1. rotate도 네트워크 변수로 적용하기
-// 2. netAnimState 네트워크 변수 만들어서 상태 변환 처리하기
