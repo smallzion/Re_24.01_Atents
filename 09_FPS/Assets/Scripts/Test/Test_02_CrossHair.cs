@@ -5,14 +5,10 @@ using UnityEngine.InputSystem;
 
 public class Test_02_CrossHair : TestBase
 {
-    Crosshair crossHair;
-    public float value = 30.0f;
-    private void Start()
-    {
-        crossHair = FindAnyObjectByType<Crosshair>();
-    }
+    public Crosshair crosshair;
+    public float expendAmount = 30.0f;
     protected override void OnTestLClick(InputAction.CallbackContext context)
     {
-        crossHair.Expend(value);
+        crosshair.Expend(expendAmount);
     }
 }

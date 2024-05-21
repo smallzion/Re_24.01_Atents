@@ -21,7 +21,7 @@ public class Crosshair : MonoBehaviour
     /// <summary>
     /// 기본적으로 확장되어 있는 길이(부모에서 기본적으로 떨어져 있는 정도)
     /// </summary>
-    const float defaultExpend = 15.0f;
+    const float defaultExpend = 10.0f;
 
     /// <summary>
     /// 현재 확장되어 있는 길이(defaultExpend에서 얼마나 더 확장되었나)
@@ -56,9 +56,9 @@ public class Crosshair : MonoBehaviour
     private void Awake()
     {
         crossRects = new RectTransform[transform.childCount];       // 크로스해어의 이미지 미리 찾아 놓기
-        for (int i = 0; i < transform.childCount; i++)
+        for(int i=0; i<transform.childCount; i++)
         {
-            crossRects[i] = transform.GetChild(i) as RectTransform;
+            crossRects[i] = transform.GetChild(i) as RectTransform; 
         }
     }
 
@@ -69,7 +69,7 @@ public class Crosshair : MonoBehaviour
     public void Expend(float amount)
     {
         current = Mathf.Min(current + amount, maxExpend);   // 최대치를 넘지 않게 조절
-        for (int i = 0; i < crossRects.Length; i++)
+        for(int i=0;i<crossRects.Length;i++)
         {
             crossRects[i].anchoredPosition = (defaultExpend + current) * direction[i];    // defaultExpend에서 current만큼 확장시키기
         }
@@ -89,8 +89,8 @@ public class Crosshair : MonoBehaviour
 
         float startExpend = current;    // current를 이용해서 현재 확장 정도 기록해두기(최대치 설정)
         float curveProcess = 0.0f;      // 현재 커브 진행 정도(0 ~ 1)
-
-        while (curveProcess < 1)         // curveProcess가 1이 될 때까지 계속 진행
+        
+        while(curveProcess < 1)         // curveProcess가 1이 될 때까지 계속 진행
         {
             curveProcess += Time.deltaTime * divPreCompute; // recoveryDuration 기간에 맞춰서 curveProcess 진행
             current = recoveryCurve.Evaluate(curveProcess) * startExpend;   // current를 계산하기(커브 결과 * 최대치)
