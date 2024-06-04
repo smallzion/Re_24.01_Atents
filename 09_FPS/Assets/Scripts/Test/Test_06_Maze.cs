@@ -14,6 +14,8 @@ public class Test_06_Maze : TestBase
     public int height = 5;
 
     public MazeVisualizer backtracking;
+    public MazeVisualizer eller;
+    public MazeVisualizer wilson;
 
     protected override void OnTest1(InputAction.CallbackContext context)
     {
@@ -32,5 +34,23 @@ public class Test_06_Maze : TestBase
         BackTracking maze = new BackTracking();
         maze.MakeMaze(width, height, seed);
         backtracking.Draw(maze);
+    }
+
+    protected override void OnTest4(InputAction.CallbackContext context)
+    {
+        eller.Clear();
+
+        Eller maze = new Eller();
+        maze.MakeMaze(width, height, seed);
+        eller.Draw(maze);
+    }
+
+    protected override void OnTest5(InputAction.CallbackContext context)
+    {
+        wilson.Clear();
+
+        Wilson maze = new Wilson();
+        maze.MakeMaze(width, height, seed);
+        wilson.Draw(maze);
     }
 }
