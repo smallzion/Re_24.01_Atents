@@ -35,14 +35,56 @@ public class Player : MonoBehaviour
     GunBase activeGun;
 
     /// <summary>
-    /// 기본 총(리볼버)
+    /// 최대 HP
     /// </summary>
-    GunBase defaultGun;
+    public float MaxHP = 100.0f;
+
+    /// <summary>
+    /// 현재 HP
+    /// </summary>
+    float hp;
+
+    /// <summary>
+    /// 현재 HP 확인 및 설정용 프로퍼티
+    /// </summary>
+    public float HP
+    {
+        get => hp;
+        set
+        {
+            hp = value;
+            if(hp <= 0)
+            {
+                Die();  // HP가 0 이하면 사망
+            }
+            hp = Mathf.Clamp(hp, 0, MaxHP); // HP 최대 최소 안벗어나게 만들기
+
+            Debug.Log($"HP : {hp}");
+
+            onHPChange?.Invoke(hp);         // HP 변화 알리기
+        }
+    }
+
 
     /// <summary>
     /// 총이 변경되었음을 알리는 델리게이트
     /// </summary>
     public Action<GunBase> onGunChange;
+
+    /// <summary>
+    /// 공격을 받았을 때 실행될 델리게이트(float:공격 받은 각도. 플레이어 forward와 적으로 가는 방향 벡터 사이의 각도. 시계방향)
+    /// </summary>
+    public Action<float> onAttacked;
+
+    /// <summary>
+    /// HP가 변경되었을 때 실행될 델리게이트(float:현재 HP)
+    /// </summary>
+    public Action<float> onHPChange;
+
+    /// <summary>
+    /// 플레이어가 죽었을 때 실행될 델리게이트
+    /// </summary>
+    public Action onDie;
 
     private void Awake()
     {
@@ -53,7 +95,6 @@ public class Player : MonoBehaviour
 
         Transform child = transform.GetChild(3);
         guns = child.GetComponentsInChildren<GunBase>(true);    // 모든 총 찾기        
-        defaultGun = guns[0];   // 기본총        
     }
 
     private void Start()
@@ -65,10 +106,19 @@ public class Player : MonoBehaviour
         {
             gun.onFire += controller.FireRecoil;                        // 화면 튕기는 효과
             gun.onFire += (expend) => crosshair.Expend(expend * 10);    // 조준선 확장 효과
+            gun.onAmmoDepleted += () =>
+            {
+                if (!(activeGun is Revolver))
+                {
+                    GunChange(GunType.Revolver);    // 총알이 다 떨어지면 기본총으로 변경
+                }
+            };
         }
-        activeGun = defaultGun; // 기본총 설정
+        activeGun = guns[0];    // 기본총 설정
         activeGun.Equip();      // 기본총 장비
         onGunChange?.Invoke(activeGun); // 총 변경 알림
+
+        HP = MaxHP;
     }
 
     /// <summary>
@@ -86,8 +136,8 @@ public class Player : MonoBehaviour
     /// <param name="gunType">총의 종류</param>
     public void GunChange(GunType gunType)
     {
-        activeGun.gameObject.SetActive(false);  // 이전 총 비활성화하고 장비 해제하기
         activeGun.UnEquip();
+        activeGun.gameObject.SetActive(false);  // 이전 총 비활성화하고 장비 해제하기
 
         activeGun = guns[(int)gunType];         // 새총 설정하고 장비하고 활성화하기
         activeGun.Equip();
@@ -121,11 +171,43 @@ public class Player : MonoBehaviour
     /// 총알 개수가 변경될 때 실행되는 델리게이트에 콜백함수 추가
     /// </summary>
     /// <param name="callback">추가할 콜백함수</param>
-    public void AddBulletCountChangeDelegate(Action<int> callback)
+    public void AddAmmoCountChangeDelegate(Action<int> callback)
     {
         foreach(var gun in guns)
         {
-            gun.onBulletCountChange += callback;
+            gun.onAmmoCountChange += callback;
         }
+    }
+
+    /// <summary>
+    /// 공격을 받았을 때 실행되는 함수
+    /// </summary>
+    /// <param name="enemy">공격을 한 적</param>
+    public void OnAttacked(Enemy enemy)
+    {
+        Vector3 dir = enemy.transform.position - transform.position;
+
+        // 공격당한 각도(시계방향)
+        float angle = Vector3.SignedAngle(transform.forward, dir, Vector3.up);
+        onAttacked?.Invoke(-angle);
+        HP -= enemy.attackPower;
+    }
+
+    /// <summary>
+    /// 플레이어 사망 처리용 함수
+    /// </summary>
+    private void Die()
+    {
+        onDie?.Invoke();                // 죽었음을 알림
+        gameObject.SetActive(false);    // 플레이어 오브젝트 비활성화
+    }
+
+    /// <summary>
+    /// 입력을 막는 함수
+    /// </summary>
+    public void InputDisable()
+    {
+        starterAssets.enabled = false;
+
     }
 }

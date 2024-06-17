@@ -4,6 +4,7 @@ using Unity.AI.Navigation;
 using UnityEngine;
 using System.Threading.Tasks;
 using UnityEngine.SceneManagement;
+using System;
 
 [RequireComponent(typeof(MazeVisualizer))]
 [RequireComponent (typeof(NavMeshSurface))]
@@ -23,20 +24,31 @@ public class MazeGenerator : MonoBehaviour
     NavMeshSurface navMeshSurface;
     AsyncOperation navAsync;
 
+    /// <summary>
+    /// 생성한 미로
+    /// </summary>
+    Maze maze = null;
+
+    public Maze Maze => maze;
+
+    /// <summary>
+    /// 미로의 골인 지점
+    /// </summary>
+    Goal goal;
+
+    /// <summary>
+    /// 미로 생성이 끝났음을 알리는 델리게이트
+    /// </summary>
+    public Action onMazeGenerated;
+
     private void Awake()
     {
         visualizer = GetComponent<MazeVisualizer>();
         navMeshSurface = GetComponent<NavMeshSurface>();
     }
 
-    private void Update()
-    {
-        Debug.Log("Update");
-    }
-
     public void Generate(int width, int height)
     {
-        Maze maze = null;
         switch (mazeAlgorithm)
         {
             case MazeAlgorithm.RecursiveBackTracking:
@@ -55,6 +67,8 @@ public class MazeGenerator : MonoBehaviour
         visualizer.Clear();
         visualizer.Draw(maze);
 
+
+
         StartCoroutine(UpdateSurface());
 
     }
@@ -67,5 +81,9 @@ public class MazeGenerator : MonoBehaviour
             yield return null;
         }
         Debug.Log("Nav Surface Updated!");
+
+        // 오클루전 컬링도 새로 베이크 필요        
+
+        onMazeGenerated?.Invoke();  // 미로 생성이 끝났음을 알림
     }
 }

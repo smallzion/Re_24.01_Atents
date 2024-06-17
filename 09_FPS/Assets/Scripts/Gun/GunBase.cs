@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -37,7 +38,12 @@ public class GunBase : MonoBehaviour
         set
         {
             bulletCount = value;
-            onBulletCountChange?.Invoke(bulletCount);   // 총알 개수가 변경되었다고 알림
+            onAmmoCountChange?.Invoke(bulletCount);   // 총알 개수가 변경되었다고 알림
+
+            if(bulletCount < 1)
+            {
+                onAmmoDepleted?.Invoke();
+            }
         }
     }
 
@@ -84,7 +90,12 @@ public class GunBase : MonoBehaviour
     /// <summary>
     /// 남은 총알 개수가 변경되었음을 알리는 델리게이트(int:남은 총알 개수)
     /// </summary>
-    public Action<int> onBulletCountChange;
+    public Action<int> onAmmoCountChange;
+
+    /// <summary>
+    /// 총알이 다 떨어졌음을 알리는 델리게이트
+    /// </summary>
+    public Action onAmmoDepleted;
 
     /// <summary>
     /// 총알이 한발 발사되었음을 알리는 델리게이트(float:반동 정도)
@@ -124,8 +135,8 @@ public class GunBase : MonoBehaviour
     {
         isFireReady = false;            // 계속 발사가 되지 않게 막기
         MuzzleEffectOn();               // 머즐 이팩트 보여주고
-        BulletCount--;                  // 총알 개수 감소
         StartCoroutine(FireReady());    // 일정 시간 후에 자동으로 발사 가능하게 설정
+        BulletCount--;                  // 총알 개수 감소
     }
 
     /// <summary>
@@ -152,10 +163,35 @@ public class GunBase : MonoBehaviour
     protected void HitProcess()
     {
         Ray ray = new(fireTransform.position, GetFireDirection());  // 레이 만들기
-        if( Physics.Raycast(ray, out RaycastHit hitInfo, range))    // 레이캐스트
+
+        //int i = ~LayerMask.GetMask("Default");    // Default레이어 빼고 체크
+        if ( Physics.Raycast(ray, out RaycastHit hitInfo, range, ~LayerMask.GetMask("Default")))    // 레이캐스트
         {
-            Vector3 reflect = Vector3.Reflect(ray.direction, hitInfo.normal);
-            Factory.Instance.GetBulletHole(hitInfo.point, hitInfo.normal, reflect); // 총알 구멍 생성을 위해, 생성될 위치, 생성될 면의 노멀, 반사방향 전달
+            if( hitInfo.transform.gameObject.layer == LayerMask.NameToLayer("Enemy"))
+            {
+                Enemy target = hitInfo.collider.GetComponentInParent<Enemy>();
+                if (hitInfo.collider.CompareTag("Head"))
+                {
+                    target.OnAttacked(HitLocation.Head, damage);    // 맞은 부위와 데미지 넘겨주기
+                }
+                else if(hitInfo.collider.CompareTag("Arm"))
+                {
+                    target.OnAttacked(HitLocation.Arm, damage);
+                }
+                else if (hitInfo.collider.CompareTag("Leg"))
+                {
+                    target.OnAttacked(HitLocation.Leg, damage);
+                }
+                else if (hitInfo.collider.CompareTag("Body"))
+                {
+                    target.OnAttacked(HitLocation.Body, damage);
+                }
+            }
+            else
+            {
+                Vector3 reflect = Vector3.Reflect(ray.direction, hitInfo.normal);
+                Factory.Instance.GetBulletHole(hitInfo.point, hitInfo.normal, reflect); // 총알 구멍 생성을 위해, 생성될 위치, 생성될 면의 노멀, 반사방향 전달
+            }
         }
     }
 
