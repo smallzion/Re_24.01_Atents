@@ -1,6 +1,7 @@
 using StarterAssets;
 using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class Player : MonoBehaviour
 {
@@ -13,6 +14,11 @@ public class Player : MonoBehaviour
     /// 유니티가 제공하는 입력 처리용 코드
     /// </summary>
     FirstPersonController controller;
+
+    /// <summary>
+    /// PlayerInput 컴포넌트
+    /// </summary>
+    PlayerInput playerInput;
 
     /// <summary>
     /// 총만 촬영하는 카메라가 있는 게임 오브젝트
@@ -82,6 +88,11 @@ public class Player : MonoBehaviour
     public Action<float> onHPChange;
 
     /// <summary>
+    /// 플레이어가 맵의 가운데 배치되었을 때 실행될 델리게이트
+    /// </summary>
+    public Action onSpawn;
+
+    /// <summary>
     /// 플레이어가 죽었을 때 실행될 델리게이트
     /// </summary>
     public Action onDie;
@@ -90,6 +101,7 @@ public class Player : MonoBehaviour
     {
         starterAssets = GetComponent<StarterAssetsInputs>();
         controller = GetComponent<FirstPersonController>();
+        playerInput = GetComponent<PlayerInput>();
 
         gunCamera = transform.GetChild(2).gameObject;
 
@@ -119,6 +131,10 @@ public class Player : MonoBehaviour
         onGunChange?.Invoke(activeGun); // 총 변경 알림
 
         HP = MaxHP;
+
+        GameManager.Instance.onGameEnd += (_) => InputDisable();           // 게임이 클리어되면 입력 막기
+
+        Spawn();
     }
 
     /// <summary>
@@ -194,6 +210,17 @@ public class Player : MonoBehaviour
     }
 
     /// <summary>
+    /// 플레이어를 맵에 배치시키는 함수
+    /// </summary>
+    public void Spawn()
+    {
+        GameManager gameManager = GameManager.Instance;
+        Vector3 centerPos = MazeVisualizer.GridToWorld(gameManager.MazeWidth / 2, gameManager.MazeHeight / 2);
+        transform.position = centerPos;  // 플레이어를 미로의 가운데 위치로 옮기기
+        onSpawn?.Invoke();
+    }
+
+    /// <summary>
     /// 플레이어 사망 처리용 함수
     /// </summary>
     private void Die()
@@ -205,9 +232,10 @@ public class Player : MonoBehaviour
     /// <summary>
     /// 입력을 막는 함수
     /// </summary>
-    public void InputDisable()
+    void InputDisable()
     {
-        starterAssets.enabled = false;
-
+        playerInput.actions.actionMaps[0].Disable();    // 액션맵이 1개만 있기 때문에 그냥 처리
+        //InputActionMap playerActionMap = playerInput.actions.FindActionMap("Player");
+        //playerActionMap.Disable();
     }
 }

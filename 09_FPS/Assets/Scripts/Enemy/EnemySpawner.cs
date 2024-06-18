@@ -10,6 +10,12 @@ public class EnemySpawner : MonoBehaviour
     int mazeWidth;
     int mazeHeight;
     Player player;
+    Enemy[] enemies;
+
+    private void Awake()
+    {
+        enemies = new Enemy[enemyCount];
+    }
 
     private void Start()
     {
@@ -19,18 +25,47 @@ public class EnemySpawner : MonoBehaviour
 
         player = GameManager.Instance.Player;
 
+        GameManager.Instance.onGameStart += EnemyAll_Play;
+        GameManager.Instance.onGameEnd += (_) => EnemyAll_Stop();
+    }
+
+    public void EnemyAll_Spawn()
+    {
         // 적 생성
         for (int i = 0; i < enemyCount; i++)
         {
             GameObject obj = Instantiate(enemyPrefab, transform);
             obj.name = $"Enemy_{i}";
             Enemy enemy = obj.GetComponent<Enemy>();
+            enemies[i] = enemy;
             enemy.onDie += (target) =>
             {
                 GameManager.Instance.IncreaseKillCount();
                 StartCoroutine(Respawn(target));
             };
-            enemy.Respawn(GetRandomSpawnPosition(true));
+            enemy.Respawn(GetRandomSpawnPosition(true), true);
+        }
+    }
+
+    /// <summary>
+    /// 모든 적을 움직이게 만들기
+    /// </summary>
+    void EnemyAll_Play()
+    {
+        foreach (var enemy in enemies)
+        {
+            enemy.Play();   // Wander상태로 변경
+        }
+    }
+
+    /// <summary>
+    /// 모든 적을 일시정지 시키기(이동, 공격)
+    /// </summary>
+    void EnemyAll_Stop()
+    {
+        foreach (var enemy in enemies)
+        {
+            enemy.Stop();   // 대기상태로 변경
         }
     }
 

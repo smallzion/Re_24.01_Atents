@@ -55,11 +55,12 @@ public class Enemy : MonoBehaviour
     // 상태 관련 ------------------------------------------------------------------------------------------
     public enum BehaviorState : byte
     {
-        Wander = 0, // 배회상태. 주변을 왔다갔다한다.
+        Idle = 0,   // 대기상태. 제자리에서 가만히 있기
+        Wander,     // 배회상태. 주변을 왔다갔다한다.
         Chase,      // 추적상태. 플레이어가 마지막으로 목격된 장소를 향해 계속 이동한다.
         Find,       // 탐색상태. 추적 도중에 플레이어가 시야에서 사라지면 두리번 거리며 주변을 찾는다.
         Attack,     // 공격상태. 추적 상태일 때 플레이어가 일정범위안에 들어오면 일정 주기로 공격을 한다.
-        Dead        // 사망상태. 죽는다.(일정 시간 후에 재생성)
+        Dead,       // 사망상태. 죽는다.(일정 시간 후에 재생성)
     }
 
     /// <summary>
@@ -161,8 +162,13 @@ public class Enemy : MonoBehaviour
     /// </summary>
     float attackPowerPenalty = 0;
 
+    /// <summary>
+    /// 공격범위안에 플레이어가 들어왔는지 감지하는 센서
+    /// </summary>
+    AttackSensor attackSensor;
+
     // 탐색 관련 -------------------------------------------------------------------------------------------
-    
+
     /// <summary>
     /// 탐색 상태에서 배회 상태로 돌아가기까지 걸리는 시간
     /// </summary>
@@ -192,7 +198,7 @@ public class Enemy : MonoBehaviour
         sc.radius = sightRange;
 
         Transform child = transform.GetChild(1);
-        AttackSensor attackSensor = child.GetComponent<AttackSensor>();
+        attackSensor = child.GetComponent<AttackSensor>();
         attackSensor.onSensorTriggered += (target) =>
         {
             if(attackTarget == null)    // Attack 상태에서 한번만 실행됨
@@ -210,6 +216,8 @@ public class Enemy : MonoBehaviour
         Renderer eyeRenderer = child.GetComponent<Renderer>();
         eyeMaterial = eyeRenderer.material;
         eyeMaterial.SetColor(EyeColorID, stateEyeColors[(int)BehaviorState.Wander]);
+
+        onUpdate = Update_Idle;
     }
 
     private void OnEnable()
@@ -231,14 +239,18 @@ public class Enemy : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            Debug.Log("Out : " + chaseTarget);
-            //chaseTarget = null;
+            //Debug.Log("Out : " + chaseTarget);
+            chaseTarget = null;
         }
     }
 
     private void Update()
     {
         onUpdate();
+    }
+
+    void Update_Idle()
+    {        
     }
 
     void Update_Wander()
@@ -283,12 +295,17 @@ public class Enemy : MonoBehaviour
     {
         agent.SetDestination(attackTarget.transform.position);  // 한번 공격 상태에 들어가면 끝까지 쫓아온다.
 
+        // 적이 플레이어 바라보게 만들기
+        Quaternion target = Quaternion.LookRotation(attackTarget.transform.position - transform.position);  // 적이 플레이어를 바라보는 회전
+        transform.rotation = Quaternion.Lerp(transform.rotation, target, Time.deltaTime);
+
+        // 적이 공격하기
         attackElapsed += Time.deltaTime;
         if(attackElapsed > attackInterval)
         {
             Attack();
             attackElapsed = 0.0f;
-        }
+        }        
     }
 
     void Update_Dead()
@@ -302,9 +319,16 @@ public class Enemy : MonoBehaviour
     /// <param name="newState">새 상태</param>
     void OnStateEnter(BehaviorState newState)
     {
+        //Debug.Log($"State : {newState}");
         eyeMaterial.SetColor(EyeColorID, stateEyeColors[(int)newState]);
         switch (newState)
         {
+            case BehaviorState.Idle:
+                onUpdate = Update_Idle;
+                agent.speed = 0.0f;
+                attackSensor.gameObject.SetActive(false);
+                // 공격 정지 시키기
+                break;
             case BehaviorState.Wander:                
                 onUpdate = Update_Wander;
                 agent.speed = walkSpeed * (1 - speedPenalty);
@@ -331,19 +355,23 @@ public class Enemy : MonoBehaviour
                 onDie?.Invoke(this);            // 스포너에게 부활 요청용
                 gameObject.SetActive(false);
                 break;
-            default:
+            default:            
                 break;
         }
     }
 
     /// <summary>
-    /// 특정 샅애에서 나갈때의 처리를 실행하는 함수
+    /// 특정 상태에서 나갈때의 처리를 실행하는 함수
     /// </summary>
     /// <param name="oldState">옛 상태</param>
     void OnStateExit(BehaviorState oldState)
     {
         switch (oldState)
-        {            
+        {
+            case BehaviorState.Idle:
+                agent.speed = walkSpeed;
+                attackSensor.gameObject.SetActive(true);
+                break;
             case BehaviorState.Find:
                 agent.angularSpeed = 120.0f;
                 StopAllCoroutines();
@@ -518,10 +546,34 @@ public class Enemy : MonoBehaviour
     /// 적을 리스폰 시키는 함수
     /// </summary>
     /// <param name="spawnPosition">리스폰할 위치</param>
-    public void Respawn(Vector3 spawnPosition)
+    /// <param name="init">첫 생성 여부(true면 첫번째 리스폰)</param>
+    public void Respawn(Vector3 spawnPosition, bool init = false)
     {
         agent.Warp(spawnPosition);
+        if(init)
+        {
+            State = BehaviorState.Idle;
+        }
+        else
+        {
+            State= BehaviorState.Wander;
+        }
+    }
+
+    /// <summary>
+    /// 적을 움직이기 시작하게 만드는 함수
+    /// </summary>
+    public void Play()
+    {
         State = BehaviorState.Wander;
+    }
+
+    /// <summary>
+    /// 적을 안움직이게 만드는 함수
+    /// </summary>
+    public void Stop()
+    {
+        State = BehaviorState.Idle;
     }
 
     /// <summary>
